@@ -1235,7 +1235,7 @@ def install_python(home_dir, lib_dir, inc_dir, bin_dir, site_packages, clear, sy
         prefix = sys.prefix
     prefix = os.path.abspath(prefix)
     mkdir(lib_dir)
-    fix_lib64(lib_dir, symlink)
+    lib64_link = fix_lib64(lib_dir)
     stdlib_dirs = [os.path.dirname(os.__file__)]
     if IS_WIN:
         stdlib_dirs.append(join(os.path.dirname(stdlib_dirs[0]), "DLLs"))
@@ -1501,6 +1501,8 @@ def install_python(home_dir, lib_dir, inc_dir, bin_dir, site_packages, clear, sy
             else:
                 copyfile(py_executable, full_pth, symlink)
 
+    fix_lib64_final(lib64_link, symlink)
+
     cmd = [
         py_executable,
         "-c",
@@ -1646,7 +1648,7 @@ def fix_local_scheme(home_dir, symlink=True):
                     )
 
 
-def fix_lib64(lib_dir, symlink=True):
+def fix_lib64(lib_dir):
     """
     Some platforms (particularly Gentoo on x64) put things in lib64/pythonX.Y
     instead of lib/pythonX.Y.  If this is such a platform we'll just create a
@@ -1673,9 +1675,21 @@ def fix_lib64(lib_dir, symlink=True):
     assert os.path.basename(lib_parent) == "lib", "Unexpected parent dir: {!r}".format(lib_parent)
     if os.path.lexists(lib64_link):
         return
-    if symlink:
-        os.symlink("lib", lib64_link)
+    os.symlink("lib", lib64_link)
+    return lib64_link
+
+
+def fix_lib64_final(lib64_link, symlink=True):
+    """
+    If system uses lib64/ layout and virtual environment is set up with always
+    copy option we must copy contents of "lib" directory to "lib64" after
+    virtual environment is populated.
+    """
+    if not lib64_link or symlink:
+        return
     else:
+        lib_dir = os.path.join(os.path.dirname(lib64_link), "lib")
+        os.unlink(lib64_link)
         copyfile(lib_dir, lib64_link, symlink=False)
 
 
